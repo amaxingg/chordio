@@ -9,15 +9,17 @@
     "preview": "vite preview"
   },
 
-  "dependencies": {
-    "@tonaljs/tonal": "^4.10.0",
-    "@vitejs/plugin-react": "^4.5.2",
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.6",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "tailwindcss": "^4.1.10",
-    "tone": "^15.1.22",
-    "vite": "^6.3.5"
-  }
+"dependencies": {
+  "@tonaljs/tonal": "^4.10.0",
+  "@vitejs/plugin-react": "^4.5.2",
+  "autoprefixer": "^10.4.21",
+  "postcss": "^8.5.6",
+  "react": "^18.2.0",
+  "react-dom": "^18.2.0",
+  "tailwindcss": "^4.1.10",
+  "tone": "^15.1.22",
+  "vite": "^6.3.5"
+},
+"devDependencies": {}
+
 }
