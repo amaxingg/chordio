@@ -1,0 +1,14 @@
+/* styles/spacing.css  (import this before anything that uses it) */
+:root {
+  /* ── master spacing knobs ───────────────────────────── */
+  --gap-top-edge:        20px;   /* space between note grid and very top */
+  --gap-board-to-bar:   20px;   /* note-grid → play-button bar          */
+  --gap-bar-to-fret:    40px;   /* play-button bar → fretboard          */
+  --gap-column:        20px;   /* main column ↔ sidebar                */
+  --gap-controls-to-fret: .8rem;  /* you’re already using this one */
+
+  --gap-fretboard-pills:   5rem;   /* <── tweak *one* number here */
+
+
+
+}

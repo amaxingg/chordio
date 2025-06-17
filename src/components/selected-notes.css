@@ -1,0 +1,429 @@
+/*  selected-notes.css  ───────────────────────────────────────────── */
+/* All colour variables come from your global theme (—accent, —panel, etc.) */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap");
+
+/* All generic text now defaults to Inter */
+body, button, select, input, textarea {
+  font-family: "Inter", "Open Sans", sans-serif;
+}
+
+
+:root{
+  --label-gutter: 36px;   /* ⬅︎ tweak this number to taste */
+}
+
+
+/* sleeker board: keep the thin outline, add glowing accent rails */
+.sn-board{
+  position:relative;
+  margin-left: var(--label-gutter);
+  background:var(--panel);
+  border:1px solid rgba(255,255,255,.05);   /* outline stays */
+  user-select:none;
+
+  /* subtle inner glow, top and bottom */
+  box-shadow:
+    0   2px 4px 0 rgba(var(--accent-rgb), .15) inset,   /* bottom */
+    0  -2px 4px 0 rgba(var(--accent-rgb), .15) inset;   /* top    */
+}
+
+
+/* ── Accent rails ──────────────────────────────── */
+.sn-board::before,
+.sn-board::after{
+  content:'';
+  position:absolute;
+  left:0; width:100%; height:2px;           /* rail thickness */
+  background:linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(var(--accent-rgb),.55) 15%,        /* fade-in */
+    rgba(var(--accent-rgb),.85) 50%,        /* vivid centre */
+    rgba(var(--accent-rgb),.55) 85%,        /* fade-out */
+    transparent 100%
+  );
+  pointer-events:none;                      /* never blocks clicks */
+  z-index:1;                                /* under pills, over grid */
+}
+.sn-board::before{ top:0;    }              /* top rail  */
+.sn-board::after { bottom:0; }              /* bottom rail */
+
+
+/* ─── Decorative left “spine” to mark grid start ────────────────── */
+.sn-board::before{
+  content:'';
+  position:absolute;
+  inset-block:0;   /* top:0; bottom:0;  shorthand that keeps ltr / rtl happy */
+  left:0;
+  width:2px;
+  background:rgba(var(--accent-rgb),.55);
+  pointer-events:none;
+}
+
+/* ─── GRID LINES ────────────────────────────────────────────────── */
+.sn-line{                        /* horizontal strings */
+  position:absolute;
+  left:0; width:100%; height:1px;
+  background:rgba(255,255,255,.14);  /* lighter – more transparent */
+}
+
+/* vertical grid – subtle alternation */
+.sn-quarter {                /* every full beat inside the bar */
+  background: rgba(255,255,255,.08);   /* medium */
+}
+
+.sn-eighth  {                /* the inter-beat lines */
+  background: rgba(255,255,255,.04);   /* softer */
+}
+
+
+
+.sn-beat{                        /* every beat (vertical) */
+  position:absolute;
+  top:0; height:100%; width:1px;
+ background:rgba(255,255,255,.02);  /* new ≈ 2 % opacity – subtler */
+}
+
+/* vertical grid – subtle alternation */
+.sn-quarter {                       /* every full beat inside the bar  */
+  background: rgba(255,255,255,0.12);   /* a touch brighter            */
+}
+
+.sn-eighth  {                       /* the inter-beat helper lines     */
+  background: rgba(255,255,255,0.03);   /* much softer / more transparent */
+}
+
+
+/*  ─── One-beat / half-beat vertical guides ───────────────── */
+.sn-quarter,
+.sn-eighth {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 1px;                 /* ← the critical bit         */
+}
+
+/* visual weight */
+.sn-quarter { background: rgba(255,255,255,0.10); }  /* brighter   */
+.sn-eighth  { background: rgba(255,255,255,0.02); }  /* subtler    */
+
+/* full-measure marker: thin, bright, and rendered _under_ pills */
+.sn-measure{
+  position:absolute;
+  top:0; height:100%; width:1px;
+  background:rgba(255,255,255,.30);
+  box-shadow:0 0 6px 0 rgba(255,255,255,.35);   /* soft glow */
+  z-index:0;                                    /* ⇐ sits _below_ pills */
+  pointer-events:none;
+}
+
+/* faint teal band every 8 beats (under everything) */
+.sn-measure-band{
+  position:absolute;
+  top:0; height:100%;           /* full-height strip */
+  background:hsla(195,70%,30%,.07);
+  z-index:-1;                   /* deepest layer */
+  pointer-events:none;
+}
+
+
+/* half-measure divider (beat 4) – keep the previous look */
+/* 4-beat half-bar divider — subtle dashed line */
+.sn-half{
+  position:absolute;
+  top:0; height:100%; width:1px;
+
+  /* create a 4-px dash / 4-px gap pattern */
+  background-image:repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,.14) 0 4px,      /* dash */
+    transparent           4px 8px     /* gap  */
+  );
+
+  opacity:.65;          /* softer than the solid bar-line */
+  z-index:0;            /* lives under pills */
+  pointer-events:none;
+}
+
+
+/* ─── Play-head ─────────────────────────────────────────────────── */
+.sn-playhead{
+  position:absolute;
+  top:0; bottom:0; width:2px;
+  background:var(--accent);
+  opacity:.65;
+  mix-blend-mode:screen;         /* subtle glow on dark bg */
+  pointer-events:none;
+}
+
+/* ─── Note “pills” ──────────────────────────────────────────────── */
+.sn-note{
+  position:absolute;
+  background:rgba(var(--accent-rgb),.20);
+  border:1px solid rgba(var(--accent-rgb),.55);
+  border-radius:4px;
+  color:#fff;
+font: 600 0.90rem/1 "Inter", sans-serif;
+  text-align:center;
+  cursor:pointer;
+  transition:background .12s, border-color .12s;
+}
+
+
+.sn-note.active{                 /* flashes while sounding */
+  background:var(--accent);
+  border-color:var(--accent);
+}
+
+/* subtler preview pills while dragging from sidebar */
+.sn-note.drag-ghost{
+  opacity: .40 !important;   /* 10 % opaque – tweak to taste */
+  pointer-events: none;
+}
+
+
+/* ─── String labels (e B G D A E) ──────────────────────────────── */
+.sn-label{
+  position:absolute;
+  left: calc(var(--label-gutter) * -1 + 7px);               /* inside first cell */
+  transform: translateY(-50%);  
+  width:1rem;
+  text-align:right;
+font-family:"Inter", sans-serif;
+  font-size:0.75rem;
+
+  font-weight:700;
+  color:#fff;  
+  text-shadow:0 0 4px rgba(0,0,0,.60); 
+  pointer-events:none;           /* labels don’t block clicks */
+}
+
+/* ─── Scrollbar (purely cosmetic) ──────────────────────────────── */
+.sn-board::-webkit-scrollbar{
+  height:6px;
+}
+.sn-board::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.25);
+  border-radius:3px;
+}
+
+/* place labels in a 1.5 rem gutter left of the grid */
+.sn-label.outside {
+  left: -2rem;          /* sits 1.5 rem to the left of the board edge  */
+  width: 1.5rem;          /* same gutter width                            */
+  text-align: right;      /* align text against the grid’s left border   */
+}
+
+
+/* ─── per-string guitar-hero colours ───────────────────────────── */
+:root{
+  --s1: hsl(121 65% 40%);   /* green   – high-e (string 1) */
+  --s2: hsl(  2 75% 50%);   /* red     – B */
+  --s3: hsl( 55 80% 45%);   /* yellow  – G */
+  --s4: hsl(200 65% 45%);   /* blue    – D */
+  --s5: hsl( 25 75% 50%);   /* orange  – A */
+  --s6: hsl(285 55% 55%);   /* purple  – low-E (extra lane) */
+}
+
+/* faint pill & outline use 20 % / 55 % alpha of that string’s colour */
+.sn-note{                               /* DEFAULT (not sounding) */
+background: color-mix(in srgb, var(--pill-col) 45%, transparent);
+border: 1px solid color-mix(in srgb, var(--pill-col) 55%, transparent);
+
+}
+.sn-note.active{                        /* FLASH while sounding   */
+  background: var(--pill-col);
+  border-color: var(--pill-col);
+}
+.sn-note.drag-ghost{ opacity:.45; }
+
+/* you *may* tweak the row-background tint the same way if you like: */
+/*
+.row-tint{
+  background: color-mix(in srgb, var(--row-col) 7%, transparent);
+}
+*/
+/* ───────── custom scrollbar for .note-scrollbox ───────── */
+.note-scrollbox::-webkit-scrollbar {
+  height: 8px;                       /* slimmer bar */
+}
+.note-scrollbox::-webkit-scrollbar-track {
+  background: var(--panel);          /* same teal panel bg */
+}
+.note-scrollbox::-webkit-scrollbar-thumb {
+  background: hsl(195 80% 35%);      /* teal thumb */
+  border-radius: 4px;
+}
+.note-scrollbox::-webkit-scrollbar-thumb:hover {
+  background: hsl(195 80% 45%);      /* lighter on hover */
+}
+/* Firefox */
+.note-scrollbox {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(195 80% 35%) var(--panel);
+}
+/* ───────── clickable pill style for sidebar chords ───────── */
+.chord-item {
+  position: relative;                 /* ⬅︎ RESTORED — anchors the arrow */
+  display: flex;
+  font-size: 1rem; 
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  justify-content:flex-start; 
+  gap:4px;  
+
+  margin: 4px 0;
+padding: 4px 12px 4px 36px;          /* 36-px left → +8 px gap */
+  border-radius: 6px;
+
+font-family: "Inter", "Open Sans", sans-serif;
+  line-height: 1.3;
+
+  background-color: hsl(195 20% 20% / .25);
+  border: 1px solid hsl(195 80% 30% / .4);
+  color: #fff;
+
+  cursor: pointer;
+  user-select: none;
+  transition: background-color .15s, border-color .15s;
+}
+
+.chord-item::before {
+  content: '▶';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: hsl(195 80% 60%);
+
+  transform: translateY(-50%);
+  animation: arrow-breathe 2.4s ease-in-out infinite;
+  transition: color .15s, text-shadow .15s;
+}
+
+/* only on hover: bright white + soft glow */
+.chord-item:hover::before {
+  color: #fff;
+  text-shadow: 0 0 6px hsl(195 100% 60% / .6);
+}
+
+
+.chord-item:hover {
+  background-color: rgba(255,255,255,0.08);
+  border-color: hsl(195 80% 45%);
+}
+
+.chord-item:active {
+  background-color: rgba(255,255,255,0.15);
+}
+
+
+
+/* translucent preview pills */
+.sn-note.ghost {
+  opacity: 0.01;
+  pointer-events: none;      /* ignore clicks while hovering */
+}
+/* gentler 5 % breathe every 2.4 s */
+@keyframes arrow-breathe {
+  0%, 100% { transform: translateY(-50%) scale(0.95); }
+  50%      { transform: translateY(-50%) scale(1.05); }
+}
+
+/* ─── Drag-armed chord pill — glowing, bouncy cue ─── */
+@keyframes pill-bounce {
+  0%, 100% { transform: scale(1);    }
+  50%      { transform: scale(0.92); }
+}
+
+.chord-item.armed {
+  position: relative;
+  z-index: 10;
+  display: flex;                      /* keep arrow + label aligned */
+  align-items: center;
+  gap: 6px;
+
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+
+  /* extra LEFT padding so the arrow never overlaps */
+padding: 4px 12px 4px 36px;          /* match base → consistent gap */
+  /* neon glow */
+  box-shadow:
+    0 0 6px  2px rgba(var(--accent-rgb), 0.65),
+    0 0 12px 4px rgba(var(--accent-rgb), 0.45);
+
+  animation: pill-bounce 0.5s ease-in-out infinite;
+  cursor: grabbing !important;
+}
+
+/* 🔄 one-shot pulse used while a note is sounding */
+@keyframes chip-pulse {
+  0%   { transform: scale(1.00); box-shadow: 0 0 0 0 rgba(var(--accent-rgb),.50); }
+  35%  { transform: scale(1.25); box-shadow: 0 0 12px 6px rgba(var(--accent-rgb),.60); }
+  100% { transform: scale(1.00); box-shadow: 0 0 0 0 rgba(var(--accent-rgb),.40); }
+}
+/* bright red preview while eraser hovers */
+.sn-note.delete-hover{
+  background: rgba(255, 82, 82, 0.35) !important;
+  border-color: #ff5252 !important;
+  box-shadow: 0 0 0 2px rgba(255,82,82,.4);
+}
+
+/* ── full-column blank (silent) pill ───────────────────────── */
+.sn-blank{
+  position:absolute;
+
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255,255,255,.04) 0 8px,
+      transparent            8px 16px
+    );
+
+  /* ↓ reduced opacity: .30 instead of .55 */
+  border:1px dashed rgba(255,255,255,.30);
+  border-radius:4px;
+
+  pointer-events:auto;
+  cursor:default;
+}
+
+.sn-blank.delete-hover{
+  background: rgba(255, 82, 82, 0.25);
+  border-color: #ff5252;
+}
+
+
+
+
+.chord-label::after {
+  content: ':';          /* literal colon */
+  margin: 0 4px 0 2px;   /* ⟵ a tight 2 px gap after the name, 4 px before pattern */
+  opacity: .9;           /* same brightness as the text */
+}
+
+
+/* right part ─ fret pattern */
+.chord-frets{
+  margin-left: auto;            /* 🡐 this does the work */
+  font-size: 0.9em;
+  letter-spacing: 0.3px;
+  font-family: inherit;
+}
+
+
+/* ─── Alternating grid emphasis ───────────────────────────── */
+/* Every other horizontal string-line a touch brighter */
+.sn-line:nth-of-type(1n) {
+  background: rgba(255,255,255,0.12);   /* was 0.07 → a bit crisper */
+}
+
+/* Every other 8-th-note vertical line a touch brighter */
+.sn-beat:nth-of-type(2n) {
+  background: rgba(255,255,255,0.12);   /* was 0.02 → barely brighter */
+}

@@ -1,0 +1,849 @@
+@import "./styles/spacing.css";
+@import "./styles/theme.css";      /* ← must come before any @tailwind rules */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* ---------- GLOBAL TYPOGRAPHY ------------------------------ */
+html, body {
+  font-family: "Inter", "Open Sans", sans-serif;
+}
+
+/* form controls & buttons inherit too */
+button,
+select,
+input,
+textarea {
+  font-family: inherit;
+}
+
+/* ui/src/index.css */
+
+
+/* ─── Disable text selection everywhere except inputs, textareas & editable
+       content.  Keeps drag interactions clean on fretboard + note-grid ─── */
+*:not(input):not(textarea):not([contenteditable]) {
+  user-select: none;          /* modern browsers */
+  -webkit-user-select: none;  /* Safari / old Chrome */
+  -ms-user-select: none;      /* old IE/Edge */
+}
+
+/* ─── Custom cursor ────────────────────────────────
+     "10 26" = hot-spot X,Y in the image (pixel coords)
+     Always list a generic fallback (“pointer” or “auto”) last. */
+/* ui/src/index.css (after your other cursor rules) */
+html, body {
+  cursor: url("/img/cursor-pick-64.png") 10 10, pointer;  /* tweak hotspot if needed */
+}
+
+body.dragging {
+  cursor: url("/img/cursor-pick-64.png") 10 10, grabbing;
+}
+
+/* right-click (context-menu) suppressed – show default  */
+body.context {
+  cursor: context-menu;
+}
+
+/* Force the pick cursor on every element, fall back to pointer */
+* {
+  cursor: url("/img/cursor-pick-64.png") 10 10, pointer;
+}
+
+/* ——— Force the guitar-pick cursor over all clickable widgets ——— */
+/* add/remove selectors to taste */
+button,
+a,
+label,
+select,
+.sn-note,
+.fret-btn,
+input[type="range"],
+input[type="checkbox"],
+input[type="radio"],
+[role="button"] {
+  cursor: url("/img/cursor-pick-64.png") 10 10, pointer !important;
+}
+
+
+body {
+  background-color: var(--bg);
+  color:            var(--text);
+}
+
+/* ─── Accent-coloured toggle (checkbox → switch) ──────────────────── */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 20px;
+  vertical-align: middle;          /* aligns nicely with the label text */
+}
+
+.toggle input {
+  opacity: 0;                      /* hide the real checkbox */
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--accent-muted);
+  border-radius: 9999px;
+  transition: background 0.25s;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+/* WHEN CHECKED ------------------------------------------------------ */
+.toggle input:checked + .toggle-track {
+  background: var(--accent);
+}
+
+.toggle input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(18px);
+}
+
+/* ─── Pill-toggle | subtle sage green ─────────────────────────── */
+.pill-toggle{
+  /* mint-green tint like your “F” chip */
+  --sage:        hsla(157, 29%, 42%, 0.418);   /* dark ring / border         */
+  --sage-light:  hsla(194, 86%, 42%, 0.685);   /* soft mint fill (ON state)  */
+
+  display:inline-block;
+  margin-block:4px;
+  cursor:pointer;
+}
+
+/* hide the real checkbox */
+.pill-toggle input{ display:none; }
+
+/* visible pill -------------------------------------------------- */
+.pill-toggle span{
+  padding:4px 18px;
+  border-radius:9999px;
+
+  font:600 0.84rem/1 "Inter", sans-serif;   /* slightly smaller text  */
+  letter-spacing:.15px;
+
+  /* OFF  – very soft tint (20 % sage into panel colour) */
+  background:
+    color-mix(in srgb,
+      var(--sage) 20%,
+      hsl(195 70% 17%)
+    );
+  color:#e8f2ee;
+  border:1px solid color-mix(in srgb,var(--sage) 40%,transparent);
+
+  transition:background .18s, transform .14s, box-shadow .14s;
+}
+
+/* OFF state – dim just the text, keep pill visible */
+.pill-toggle input:not(:checked) + span{
+  color: rgba(255,255,255,.45);   /* ← 45 % alpha on the label    */
+  /* optional: soften the fill a touch as well */
+  background: color-mix(in srgb, var(--sage-light) 40%, transparent);
+}
+
+
+/* subtle hover (both states) */
+.pill-toggle:hover span{
+  transform:scale(1.03);
+  box-shadow:0 1px 3px rgba(0,0,0,.20);
+}
+
+/* ON  – moderate solid sage, gentle glow */
+.pill-toggle input:checked + span{
+  background:var(--sage-light);
+  border-color:var(--sage-light);
+  color:#fff;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb,var(--sage-light) 65%,transparent),
+    0 1px 3px rgba(0,0,0,.22);
+}
+
+/* keyboard focus ring */
+.pill-toggle input:focus-visible + span{
+  outline:2px solid #fff;
+  outline-offset:2px;
+}
+
+
+
+
+/* ─── Accent-bordered dropdown ─────────────────────────────── */
+.accent-select {
+  padding: .125rem .375rem;  /* 3 px / 9 px */
+  border: 1px solid var(--accent-muted);
+  border-radius: .375rem;    /* 6 px */
+  line-height: 1;            /* keep text centred */
+  background: #fff;
+  font-size: 0.85rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* narrow select used for the String dropdown */
+.accent-select.string-box {
+  width: 2.1rem;   /* adjust, then refresh to see the effect */
+  min-width: 0;     /* let it shrink */
+}
+
+/* narrow number box for the Fret input */
+.accent-input.fret-box {
+  width: 1.6rem;
+  text-align: center;
+  min-width: 0;
+}
+
+
+
+.accent-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.25);
+}
+
+/* ─── Accent numeric / text input (matches .accent-select) ───────── */
+.accent-input {
+  padding: .125rem .375rem;  /* 3px / 9px  → nicer height (~28px) */
+  border: 1px solid var(--accent-muted);
+  border-radius: .375rem;                   /* 6 px */
+  line-height: 1;
+  font-size: 0.85rem;
+  background: #fff;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.accent-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), .25);
+}
+
+
+
+/* ─── Accent pill button ───────────────────────────────────────── */
+.accent-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: .375rem .875rem;      /* 9 px / 21 px at 24 px root */
+  border-radius: 9999px;
+  border: none;                       /* ← add this line */
+  background: var(--btn-on);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+  line-height: 1;          /* ← add */
+  height: 2.25rem;               /* 36 px */
+}
+
+/* NEW: colour when “off” */
+.accent-btn.off {
+  background: var(--accent-off);
+}
+
+.accent-btn:hover {
+  background: var(--btn-hover);      /* hover */
+}
+
+.accent-btn:active {
+  opacity: 0.85;                     /* press feedback */
+}
+
+.accent-btn.disabled {
+  opacity: 0.35;                       /* dim when inactive       */
+  pointer-events: none;
+}
+
+/* flexible pill – long labels like “Quarter Note” fit */
+.speed-btn {
+  min-width: 8.75rem;   /* ~140 px; adjust to taste                */
+  padding: .375rem 1.25rem;
+  justify-content: center;
+  white-space: nowrap;  /* never wraps or clips                    */
+  width: auto;          /* grow as needed instead of a fixed width */
+}
+
+
+/* ─── Accent range slider ─────────────────────────────────────── */
+.accent-range {
+  accent-color: var(--accent);          /* modern browsers */
+  width: 140px;
+  margin: 0 8px;
+}
+
+/* ─── Accent pill *toggle* (shares size with .accent-btn) ─────────── */
+.accent-btn-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;           /* keeps the hidden checkbox inside */
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  line-height: 1;          /* ← add */
+  height: 36px;            /* ← same fixed height */
+}
+
+
+/* hide the real checkbox */
+.accent-btn-toggle input {
+  opacity: 0;
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+/* visible pill */
+.accent-btn-toggle span {
+  padding: .375rem .875rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: #fff;
+  transition: opacity 0.25s, background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* OFF → 25 % opacity */
+.accent-btn-toggle input:not(:checked) + span {
+  opacity: 0.25;
+}
+
+/* ON  → 100 % opacity (default) */
+.accent-btn-toggle input:checked + span {
+  opacity: 1;
+}
+
+
+
+
+/* ───────── custom scrollbar for chordsidebar ───────── */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: var(--panel);
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: hsl(195 80% 35%);
+  border-radius: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(195 80% 45%);
+}
+/* Firefox */
+.sidebar-scroll {
+  scrollbar-width: thick;
+  scrollbar-color: hsl(195 80% 35%) var(--panel);
+}
+
+
+
+
+
+/* full-cell button keeps the hit-area; we only reset border + bg */
+.fret-btn{
+  background: transparent;
+  border: none;
+  position: relative;        /* anchor the chip inside */
+  padding: 0; margin: 0;
+  cursor: pointer;
+}
+
+/* pulse while the button is the *origin* of an active drag */
+.fret-btn.drag-origin {
+  animation: dragPulse 0.45s ease-in-out infinite alternate;
+}
+
+@keyframes dragPulse {
+  from { transform: scale(1);   filter: brightness(1);   }
+  to   { transform: scale(1.15); filter: brightness(1.4); }
+}
+
+
+/* map scale degree → base hue */
+.fret-btn.deg-1 { --col:#1E3A8A; }
+.fret-btn.deg-2 { --col:#0EA5E9; }
+.fret-btn.deg-3 { --col:#22C55E; }
+.fret-btn.deg-4 { --col:#A3E635; }
+.fret-btn.deg-5 { --col:#FACC15; }
+.fret-btn.deg-6 { --col:#FB923C; }
+.fret-btn.deg-7 { --col:#EF4444; }
+
+/* ─── modern flat chip ───────────────────────────────────────────── */
+.fret-btn .chip{
+  --size: 28px;
+
+  /* layout */
+  display:flex; justify-content:center; align-items:center;
+  width:var(--size); height:var(--size);
+  border-radius:50%;
+  font:700 0.70rem/1 "Open Sans", sans-serif;
+  position:relative;                   /* keeps the focus-ring */
+
+  /* flat pastel fill (78 % colour) */
+  background:color-mix(in srgb,
+              var(--col, hsl(195 15% 80%)) 78%, transparent);
+
+  /* crisp outline at full colour */
+border: 1.8px solid var(--col, hsl(195 15% 80%)); /* ~½ the old weight */
+
+  /* subtle “lift” via shadow */
+  box-shadow:0 1px 3px rgba(0,0,0,.25);
+
+  color:#fff;
+  transition:
+    transform .14s cubic-bezier(.3,.7,.4,1),
+    box-shadow .14s,
+    background .18s;
+  pointer-events:none;                 /* chip never blocks hits */
+}
+
+
+/* ─── de-emphasise notes that are outside the selected scale ─── */
+.fret-btn:not(.in-scale) .chip{
+  opacity:.4;                   /* 28 % visible — tweak to taste */
+}
+
+/* keep full brightness while a non-scale note is sounding */
+.fret-btn.active .chip{ opacity:1 !important; }
+
+
+/* —— tonic (degree-1) hover: keep base 1.25 and still lift 3 % —— */
+.fret-btn.deg-1:hover .chip{
+  /* 1.25 × 1.03 ≈ 1.29 — rounded up a hair so it truly pops */
+  transform: translateY(-3px) scale(1.29);
+
+  /* softer lift: smaller blur + lower opacity */
+  box-shadow:
+    0 6px 12px rgba(0,0,0,.28),   /* ambient */
+    0 3px  6px rgba(0,0,0,.34);   /* crisp edge */
+
+  /* keep the brighten-on-hover tint */
+  background: color-mix(in srgb, var(--col) 88%, white 12%);
+  border-color: color-mix(in srgb, var(--col) 90%, white 10%);
+}
+
+
+/* ─── hover: lift + gentle colour bump ─────────────────────────── */
+/* ─── enhanced hover pop ───────────────────────────────────────── */
+.fret-btn:hover .chip{
+  /* physical lift */
+  transform: translateY(-3px) scale(1.03);
+
+  /* dual-shadow: soft ambient + crisp drop  */
+  box-shadow:
+    0 6px 12px rgba(0, 0, 0, 0.35),   /* broad, blurred */
+    0 3px  6px rgba(0,  0, 0, 0.45);   /* tighter, darker */
+
+  /* keep the subtle colour brighten from before */
+  background: color-mix(in srgb, var(--col) 88%, white 12%);
+  border-color: color-mix(in srgb, var(--col) 90%, white 10%);
+}
+
+
+
+/* active flash overrides fill & shadow */
+/* big, bright pulse while the note rings */
+/* ⚡ super-bright ping while the note sounds */
+.fret-btn.active .chip{
+  background:#ffffff!important;                 /* white fill */
+  color:var(--accent)!important;                /* accent text */
+  border:2px solid var(--accent)!important;     /* thicker ring */
+
+  /* neon glow + scale pulse */
+  box-shadow:
+    0 0 0    3px rgba(var(--accent-rgb),.45),
+    0 0 12px 6px rgba(var(--accent-rgb),.55);
+
+  animation: chip-pulse 0.8s ease-out forwards;
+}
+
+
+
+/* tonic still bigger / thicker ring */
+.fret-btn.deg-1 .chip{
+  transform:scale(1.25);
+  font-size:.78rem;
+  border-width:1.8px;
+}
+
+/* ─── fret-number pills under the board ───────────────────────── */
+.fret-label{
+  font: 600 0.8rem/1 "Open Sans", sans-serif;
+  color:#fff;
+  pointer-events:none;
+  margin-top: 10px;          /* ⬅︎ add whatever feels right (4–8 px) */
+  /* OR: transform: translateY(4px); */
+}
+
+
+
+.fret-label:hover{
+  background:rgba(255,255,255,.20);        /* brighten on hover        */
+  transform:translate(-50%,-1px);          /* tiny lift               */
+}
+
+
+/* --- kill the auto-margin injected into pill buttons --- */
+.accent-btn,
+.speed-btn {
+  margin: 0 !important;        /* nuke every side */
+}
+
+/* center text inside pill-style <select> elements */
+select.accent-btn{
+  text-align:center;       /* Chrome / Safari */
+  text-align-last:center;  /* Firefox */
+}
+
+
+/* ─────────────────────────────────────────
+   Sidebar toggle – new outline style
+─────────────────────────────────────────*/
+.sidebar-toggle{
+  /* base appearance */
+  background: transparent;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  border-radius: 50%;
+  box-shadow: none;
+  transition:
+    background .25s cubic-bezier(.25,.8,.25,1),
+    color       .25s cubic-bezier(.25,.8,.25,1),
+    transform   .25s cubic-bezier(.25,.8,.25,1);
+}
+
+/* hover: fill with accent and lift a little */
+.sidebar-toggle:hover{
+  background: var(--accent);
+  color: #fff;
+  transform: scale(1.1) rotate(var(--btn-rot,0deg));
+  box-shadow: 0 0 0 4px rgba(0,0,0,.12);
+}
+
+/* active press: quick dip */
+.sidebar-toggle:active{
+  transform: scale(.92) rotate(var(--btn-rot,0deg));
+}
+
+/* subtle “look-at-me” wiggle when the sidebar is hidden */
+@keyframes wiggle{
+  0%, 100% { transform: translateX(0);   }
+  50%      { transform: translateX(3px); }
+}
+.sidebar-toggle[title*="Show sidebar"]{
+  animation: wiggle 1.4s ease-in-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CHORD SIDEBAR – modern dark-card look
+   ─────────────────────────────────────────────────────────── */
+
+/* 1. degree section headers  ──────────────────────────────── */
+.degree-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* keep a gutter for the scrollbar */
+  width: calc(100% - 30px);     /* 8 px = scrollbar/thumb width   */  
+  padding: .5rem .75rem;
+  margin: .5rem 0 .25rem;
+  border-radius: .55rem;
+  background: hsl(195 45% 21% / .85);          /* dark teal */
+  border: 1px solid hsl(195 40% 60% / .25);
+  font-weight: 600;
+  font-size: 1rem;
+  color: hsl(195 20% 92%);
+  cursor: pointer;
+  transition: background .25s, filter .25s;
+}
+
+/* ─── hover: same cyan outline & glow as chord pills ─── */
+.degree-header:hover{
+  filter: brightness(1.05);                    /* even softer brighten   */
+  border-color: hsl(195 60% 60%);              /* lower saturation      */
+  box-shadow: 0 0 0 1px hsl(195 60% 60% / .30);/* subtler outer glow    */
+}
+
+.degree-header svg     
+{ height: .9rem; 
+  width: .9rem; 
+}
+
+
+
+/* ── COLLAPSED  (outline-only button)  ───────────────────────── */
+/* use the LIGHT-CYAN you had on the open state */
+.degree-header.collapsed .degree-chevron svg{
+  color: hsl(195 80% 85%);        /* bright cyan arrow */
+}
+
+/* subtle drop shadow when open */
+.degree-body           { margin-bottom: .75rem; }   /* no right margin */
+/* hide the chord list when the section is collapsed */
+.degree-body.collapsed{
+  display:none;
+}
+
+.degree-body:not(.collapsed) {
+  /* panel now exactly matches the header width (30-px scrollbar gutter) */
+  width: calc(100% - 30px);
+
+  box-shadow: inset 0 0 0 1px hsla(195, 80%, 49%, 0.15),
+              0 4px 8px -4px hsl(195 80%  5% / .45);
+  border-radius: .55rem;
+  background: hsl(195 46% 16% / .55);
+  padding: .5rem .65rem .65rem;
+  animation: fadeBody .25s ease-in;
+}
+
+
+
+@keyframes fadeBody { from { opacity: 0; transform: scaleY(.95); }
+                       to   { opacity: 1; transform: scaleY(1); } }
+
+/* 2. sub-bucket labels (“Basic”, “Jazzy”… )  ──────────────── */
+.degree-body p {
+  margin: .45rem 0 .15rem;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: hsl(195 25% 85%);
+  text-transform: uppercase;
+}
+
+/* 3. individual chord rows  ───────────────────────────────── */
+.chord-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .5rem;
+    width: 86%; 
+
+  background: hsl(195 42% 12% / .75);
+  border: 1px solid transparent;
+  border-radius: .45rem;
+  padding: .30rem .55rem;
+  font-size: .84rem;
+  color: hsl(195 15% 90%);
+
+  transition: background .2s, border .2s, transform .15s;
+  cursor: pointer;
+}
+
+/* --- play pill in degree headers ---------------------------------- */
+.play-pill{
+  all:unset;                         /* wipe default button styles   */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:1.6rem; height:1.6rem;       /* same circle size as chevron  */
+
+  margin-right:.55rem;               /* little gap before the title  */
+
+  border-radius:50%;
+  background:hsl(195 42% 12% / .75); /* matches .chord-item default  */
+  color:hsl(195 20% 92%);
+  font-weight:700;
+  cursor:pointer;
+
+  transition:background .2s, transform .15s;
+}
+
+/* ─── inline play arrow inside degree headers ───────────── */
+/* ► idle arrow: flat cyan, no glow  */
+.play-arrow{
+  width:0; height:0;
+  border-style:solid;
+  border-width:12px 0 12px 18px;
+  border-color:transparent transparent transparent #48C4F0;
+  margin-right:.55rem;
+  animation: breathe-scale 2.4s ease-in-out infinite;  /* scale only */
+}
+
+
+/* hover / active → white flash + cyan glow */
+.degree-header:hover  .play-arrow,
+.degree-header:active .play-arrow{
+  border-left-color:#ffffff;                          /* turns white             */
+  filter:
+    drop-shadow(0 0 1px rgba(0,0,0,.55))              /* thin dark edge          */
+    drop-shadow(0 0 8px rgba(72,196,240,.85));        /* cyan halo only on hover */
+  transform:scale(1.05);                              /* same gentle bump        */
+}
+
+
+
+
+/* keep left section neatly aligned */
+.header-left{
+  display:flex;
+  align-items:center;
+  gap:.25rem;         /* arrow ↔ title spacing */
+}
+
+
+.play-pill:hover   { background:hsl(195 38% 16% / .9); }
+.play-pill:active  { transform:scale(.9); }
+
+
+.chord-item:hover      { background: hsl(195 38% 16% / .9); }
+.chord-item:active     { transform: scale(.96); }
+
+.chord-item.armed      {      /* hold-to-drag pulse */
+  background: hsl(195 80% 35%);
+  border-color: hsl(195 100% 80% / .6);
+  animation: pulse .8s infinite;
+}
+@keyframes pulse {
+  50% { filter: brightness(1.25); }
+}
+
+/* ─── scale-only pulse for the arrow ───────────────────────── */
+@keyframes breathe-scale{
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.14); }   /* gentle swell */
+  100% { transform: scale(1); }
+}
+
+
+
+/* chord name vs fret-string  */
+.chord-label { font-weight: 600; }
+.chord-frets {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .78rem;
+  color: hsl(195 15% 75%);
+}
+
+
+/*  ── degree card header pieces ─────────────────────────── */
+.degree-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:.5rem .75rem;
+  margin:.5rem 0 .25rem;
+  border-radius:.55rem;
+  background:hsl(195 45% 21% / .85);
+  border:1px solid hsl(195 40% 60% / .25);
+  font-weight:600;
+  font-size:1rem;
+  color:hsl(195 20% 92%);
+}
+
+/* title just gets pointer on hover */
+.degree-title{ cursor:pointer; }
+
+/* --- drop–down circle (matches the sidebar-toggle look) -------------- */
+/* --- drop-down circle ------------------------------------------------ */
+.degree-chevron{
+  all:unset;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  width:1.65rem;
+  height:1.65rem;
+  border-radius:50%;
+
+  border:2px solid var(--accent);
+  color:var(--accent);          /* ← default = collapsed look  */
+  background:transparent;
+
+  transition:
+    background .25s,
+    color .25s,
+    transform .2s;
+}
+
+/* open (expanded) – stays filled so it feels “active” */
+.degree-header:not(.collapsed) .degree-chevron{
+  background: var(--accent);                 /* solid teal circle  */
+  color: #fff;                               /* white arrow       */
+}
+
+/* optional: a touch brighter on hover while open */
+.degree-header:not(.collapsed) .degree-chevron:hover{
+  background: color-mix(in srgb, var(--accent) 85%, #ffffff 15%);
+}
+
+
+/* optional: brighter hover while it’s already open */
+.degree-header:not(.collapsed) .degree-chevron:hover{
+  background:color-mix(in srgb,var(--accent) 85%, white 15%);
+}
+
+/* base size + rotation animation (unchanged) */
+.degree-chevron svg{
+  width:.9rem;
+  height:.9rem;
+  transition: transform .25s, color .25s;
+}
+.degree-chevron svg.rotate-90{ transform:rotate(-90deg); }
+
+/* ------------ CHEVRON VISIBILITY (no rotation) ------------ */
+
+/* 1️⃣  base: hide BOTH, we’ll enable the right one below      */
+.chev-down, .chev-up { display:none; }
+
+/* 2️⃣  collapsed  ➜ show the ▼ icon                          */
+.degree-header.collapsed   .chev-down { display:inline; }
+
+/* 3️⃣  open       ➜ show the ▲ icon                          */
+.degree-header:not(.collapsed) .chev-up { display:inline; }
+
+/* ─── Breathing pulse used by .play-arrow & .play-pill ─────────── */
+@keyframes breathe{
+  0%  { transform:scale(1);
+        box-shadow:0 0 0 0   rgba(var(--accent-rgb),.55); }
+  50% { transform:scale(1.14);          /* gentle swell */
+        box-shadow:0 0 0 12px rgba(var(--accent-rgb),0); }
+ 100% { transform:scale(1);
+        box-shadow:0 0 0 0   rgba(var(--accent-rgb),0); }
+}
+
+/* tiny performance hint */
+.play-arrow,
+.play-pill { will-change: transform, box-shadow; }
+
+/* ─── drag-origin pulse for degree headers — EXACT match to chord pills ─── */
+.degree-header.armed{
+  /* same bright teal fill */
+  background: hsl(195 80% 35%);
+
+  /* same mint-cyan ring */
+  border: 1px solid hsl(195 100% 80% / .60);
+
+  /* soft neon halo (inner + outer) */
+  box-shadow:
+    0 0 0   2px hsl(195 100% 80% / .45),   /* inner ring  */
+    0 0 12px 6px hsl(195 100% 70% / .30);  /* outer glow  */
+
+  /* same slow brightness pulse */
+  animation: pulse .8s ease-in-out infinite;
+}
+
+/* keeps the animation snappy */
+.degree-header.armed{ will-change: filter; }

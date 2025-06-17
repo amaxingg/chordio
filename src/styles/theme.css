@@ -1,0 +1,68 @@
+/* --------------------------------------------------
+   Design tokens – “Cream & Pastel” theme v0.1
+   Edit here → entire app updates.
+-------------------------------------------------- */
+
+html {
+  font-size: 24px;   /* 150 % of the normal 16 px */
+}
+
+
+:root{
+  /* subtle “pastel-plus” versions of your chosen hues */
+  --deg1: hsl(220 50% 45%);   /* navy  → softer mid-blue  */
+  --deg2: hsl(195 60% 48%);   /* teal  → matches sidebar  */
+  --deg3: hsl(135 45% 50%);   /* green → slightly muted   */
+  --deg4: hsl( 85 55% 55%);   /* lime  → gentler, less neon */
+  --deg5: hsl( 50 80% 60%);   /* yellow→ pastel gold      */
+  --deg6: hsl( 30 70% 60%);   /* orange→ softer pumpkin   */
+  --deg7: hsl(355 65% 55%);   /* red   → coral-red        */
+}
+
+
+:root {
+  /* Surface & text */
+  --bg:           #002b36;   /* warm off-white */
+  --panel: color-mix(in srgb, #005666 50%, transparent);
+  --text:         #222222;
+  --text-muted:   #555555;
+
+  /* Fretboard */
+  --fretboard-bg:        #5c2e1b;   /* dark wood */
+  --fretboard-line:      #e3a07a;   /* thin red dividers */
+  --fretboard-string:    #d0d0d0;
+  --fretboard-inlay:     #2c1305;
+
+  /* Notes (C → B, pastel wheel) */
+  --c:  #f6c3c6;
+  --cs: #f8d8b2;
+  --d:  #faf4b7;
+  --ds: #d8edc5;
+  --e:  #bfead4;
+  --f:  #b9dbf7;
+  --fs: #c8c1f9;
+  --g:  #d7bbf4;
+  --gs: #e9bbe8;
+  --a:  #f3bbd2;
+  --as: #f8c6b3;
+  --b:  #f5ddb1;
+
+  /* Accent & UI chrome */
+  --accent:        #2d7481;
+  --accent-muted:  #083a47;
+  --border-radius: 12px;
+
+  /* helpers for semi-transparent tints */
+--accent-rgb:        0, 163, 122;   /*   #00a37a */
+--accent-muted-rgb:  96, 196, 167;  /*   #60c4a7 */
+
+/* Playback Button colour tokens */
+--btn-on:   #005666;   /* bright teal (ON)  */
+--btn-off:  #003542;   /* muted teal  (OFF) */
+--btn-hover:#03414c;   /* hover colour      */
+
+
+}
+
+/* Example alternate theme scaffold
+html.dark { …different values for the same --vars… } */
