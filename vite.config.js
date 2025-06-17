@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@logic': path.resolve(__dirname, '../logic')
+      '@logic': path.resolve(__dirname, 'src/logic')   // <── NEW
     }
   },
   server: {
