@@ -1,3 +1,4 @@
+// src/components/FretboardToolbar.jsx
 import React from 'react';
 
 /* helper – capitalise first letter (“major” → “Major”) */
@@ -15,11 +16,14 @@ export default function FretboardToolbar({
   /* 🩹 Eraser toggle */
   eraseMode,       setEraseMode,
 
-  /* 👁  3-state visibility toggle */
+  /* 👁 3-state visibility toggle */
   noteVisIdx,      setNoteVisIdx,
-  addBlankNote,                    /* NEW */
+
+  /* new helpers */
+  addBlankNote,
+  onUndo,          // ← pass null when stack empty
 }) {
-  /* ── data ───────────────────────────────────────────── */
+  /* ── data ─────────────────────────────────────────────── */
   const ROOTS  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
   const MODES  = ['major','minor'];
 
@@ -30,14 +34,13 @@ export default function FretboardToolbar({
     })),
   );
 
-  /* labels for the 3-state pill */
   const visLabels = [
     'Show out-of-scale notes',
     'Show in-scale notes only',
     'Hide all notes',
   ];
 
-  /* ── render ─────────────────────────────────────────── */
+  /* ── render ───────────────────────────────────────────── */
   return (
     <div
       style={{
@@ -48,7 +51,6 @@ export default function FretboardToolbar({
         flexWrap: 'wrap',
       }}
     >
-
       {/* Key / Scale dropdown */}
       <select
         className="accent-btn speed-btn px-3 py-2 cursor-pointer"
@@ -63,7 +65,6 @@ export default function FretboardToolbar({
           <option key={id} value={id}>{label}</option>
         ))}
       </select>
-
 
       {/* 3-state visibility pill */}
       <button
@@ -91,26 +92,29 @@ export default function FretboardToolbar({
         ))}
       </select>
 
-{/* Insert Blank pill */}
-<button
-  className="accent-btn speed-btn"
-  onClick={addBlankNote}
->
-  Add Pause
-</button>
+      {/* Insert blank (rest) */}
+      <button className="accent-btn speed-btn" onClick={addBlankNote}>
+        Add Pause
+      </button>
 
+      {/* Undo ↶ */}
+      <button
+        className="accent-btn speed-btn"
+        onClick={onUndo}
+        disabled={!onUndo}
+        style={{ opacity: onUndo ? 1 : 0.3 }}
+      >
+        Undo ↶
+      </button>
 
-     {/* ── Eraser pill ── */}
-<button
-  className="accent-btn speed-btn"
-  onClick={() => setEraseMode(!eraseMode)}
-  style={{ opacity: eraseMode ? 1 : 0.25 }}   // ← identical logic to “Loop”
->
-Eraser 🩹 
-</button>
-
-
-
+      {/* Eraser 🩹 */}
+      <button
+        className="accent-btn speed-btn"
+        onClick={() => setEraseMode(!eraseMode)}
+        style={{ opacity: eraseMode ? 1 : 0.25 }}
+      >
+        Eraser 🩹
+      </button>
     </div>
   );
 }

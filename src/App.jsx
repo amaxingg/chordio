@@ -29,6 +29,7 @@ export default function App() {
   const [scaleType, setScaleType] = useState('major');
   const [stringIdx, setStringIdx] = useState(1);
   const [fret,  setFret]       = useState(0);
+  const undoStack = useRef([]);   // ← NEW (start as [])
 
 const [exactPositionOnly, setExactPositionOnly] = useState(true);
 const [maxPlayScore,      setMaxPlayScore]      = useState(20);
@@ -56,6 +57,26 @@ const [isChordDragging, setIsChordDragging] = useState(false);
 const [beats, setBeats] = useState(BEATS_PER_MEASURE); // start with 1 measure
 const [selectedNotes, setSelectedNotes] = useState([]);
 const [ghostNotes,   setGhostNotes]   = useState([]);   // ← live preview
+
+// Keep at most 50 snapshots and never store two identical references in a row
+const pushHistory = (snapshot) => {
+  const stack = undoStack.current;
+
+  // only push when the reference is different from the current top-of-stack
+  if (!stack.length || stack[stack.length - 1] !== snapshot) {
+    stack.push(snapshot);
+    if (stack.length > 50) stack.shift();   // cap size
+  }
+};
+
+
+const handleUndo = () => {
+  if (!undoStack.current.length) return;
+  const prev = undoStack.current.pop();
+  setSelectedNotes(prev);
+};
+
+
 
 /* 🔄  Always make the grid long enough for the right-most pill */
 useEffect(() => {
@@ -167,42 +188,54 @@ const mouseUp = e => {
 
   const { beat, valid } = toGrid(e.clientX, e.clientY);
 
-  /* cancel drop if mouse never entered a valid grid cell */
+  /* cancel drop if the mouse never entered a valid grid cell */
   if (!valid) {
-    setGhostNotes([]); ghostRef.current = [];
-    setIsChordDragging(false);     // flag OFF on cancelled drop
+    setGhostNotes([]);
+    ghostRef.current = [];
+    setIsChordDragging(false);
     return;
   }
-    /* extend grid if needed */
-    if (beat >= beats) {
-      const extra = Math.floor(beat / BEATS_PER_MEASURE) + 1;
-      setBeats(extra * BEATS_PER_MEASURE);
-    }
 
+  /* extend the grid if we dropped beyond the current end */
+  if (beat >= beats) {
+    const extra = Math.floor(beat / BEATS_PER_MEASURE) + 1;
+    setBeats(extra * BEATS_PER_MEASURE);
+  }
 
-/* add real notes – drop any pill whose range (beat ➜ beat+duration-1)
-   overlaps the range of a ghost pill on the same string */
-setSelectedNotes(prev => [
-  ...prev.filter(n =>
-    !ghostRef.current.some(g => {
-      if (g.string !== n.string) return false;          // different string ⇒ keep
-      /* ---------- range-intersection test ---------- */
-      const gStart = g.beat;
-      const gEnd   = g.beat + (g.duration ?? 1) - 1;
-      const nStart = n.beat;
-      const nEnd   = n.beat + (n.duration ?? 1) - 1;
-      return gEnd >= nStart && gStart <= nEnd;          // overlap ⇒ drop
-    })
-  ),
-  /* then commit the chord we just dropped */
-  ...ghostRef.current.map(g => ({ ...g, id: crypto.randomUUID() })),
-]);
+  /* ── commit the chord ───────────────────────────────────── */
+  const chordGhosts = ghostRef.current.slice();   // ⬅️  stable snapshot
 
+  setSelectedNotes(prev => {
+    /* 1️⃣  snapshot *before* mutating so Undo removes just this chord */
+    pushHistory(prev);
 
-    setGhostNotes([]);                             // clear preview
-    setIsChordDragging(false);       // flag OFF on successful drop
+    /* 2️⃣  drop any pills that collide with the chord on the same string */
+    const keep = prev.filter(n =>
+      !chordGhosts.some(g => {
+        if (g.string !== n.string) return false;    // diff string → keep
+        const g0 = g.beat,
+              g1 = g.beat + (g.duration ?? 1) - 1,
+              n0 = n.beat,
+              n1 = n.beat + (n.duration ?? 1) - 1;
+        return g1 >= n0 && g0 <= n1;                // overlap → drop
+      })
+    );
 
-  };
+    /* 3️⃣  add the freshly-dropped chord */
+    const added = chordGhosts.map(g => ({
+      ...g,
+      id: crypto.randomUUID(),
+    }));
+
+    return [...keep, ...added];
+  });
+
+  /* housekeeping */
+  setGhostNotes([]);
+  ghostRef.current = [];
+  setIsChordDragging(false);
+};
+
 
   /* kick off listeners + immediate first ghost */
   mouseMove({ clientX:startX, clientY:startY });
@@ -265,8 +298,9 @@ const noteLenBeats = noteLenOptions[noteLenIdx];     // ← RESTORED
 
 /* ──────────  ADD & EDIT NOTES  ──────────────────────────── */
 const handleAddSelected = ({ string, fret }) => {
-  /* overlap helper: does note `n` touch any beat in [start, end]? */
-  const overlapsRange = (start, end, n) => {
+    pushHistory(selectedNotes);  /* overlap helper: does note `n` touch any beat in [start, end]? */
+ 
+    const overlapsRange = (start, end, n) => {
     const nStart = n.beat;
     const nEnd   = n.beat + (n.duration ?? 1) - 1;
     return !(end < nStart || start > nEnd);     // ranges intersect
@@ -309,7 +343,8 @@ const handleAddSelected = ({ string, fret }) => {
 
 /* ── insert a blank (silent) pill at the next free span ───────── */
 const addBlankNote = () => {
-  /* find first empty span of length noteLenBeats (same code as handleAdd…) */
+  pushHistory(selectedNotes);  /* find first empty span of length noteLenBeats (same code as handleAdd…) */
+
   const overlaps = (s,e,n) => {
     const n0 = n.beat, n1 = n.beat + (n.duration ?? 1) - 1;
     return !(e < n0 || s > n1);
@@ -384,6 +419,7 @@ const handlePlayPill = (note) => {
 
 
 const moveNote = (id, newBeat, newString) => {
+  pushHistory(selectedNotes);
   setSelectedNotes(prev => {
     /* pull out the pill we’re moving */
     const moving = prev.find(n => n.id === id);
@@ -464,8 +500,9 @@ const handleNoteClick = (note, x, y) => {
   };
 
     /* ─── Eraser: delete a single note pill ─── */
-  const handleEraseNote = (id) =>
-    setSelectedNotes(prev => prev.filter(n => n.id !== id));
+const handleEraseNote = (id) => {
+  pushHistory(selectedNotes);    setSelectedNotes(prev => prev.filter(n => n.id !== id));
+}
 
   /* close menu on outside-click */
   useEffect(() => {
@@ -990,6 +1027,8 @@ return (
   setEraseMode={setEraseMode}
    noteVisIdx={noteVisIdx} setNoteVisIdx={setNoteVisIdx}
    addBlankNote={addBlankNote}
+  onUndo={undoStack.current.length ? handleUndo : null}   
+
    disableHover={isChordDragging}  
 
 
