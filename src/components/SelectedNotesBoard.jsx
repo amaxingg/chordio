@@ -10,6 +10,9 @@ export default function SelectedNotesBoard({
   progress = null,
   activeIds = new Set(),
   showLabels = true,
+  /* NEW – where playback should begin */
+  startBeat = 0,
+  onSetStartBeat = () => {},      //  <-- ADD THIS PROP
 
   /* callbacks */
   onPillPlay = () => {},
@@ -46,6 +49,12 @@ const mouseDownRef = useRef(null);
 
   const lastRowRef   = useRef(null);
 const [ghost, setGhost] = useState(null);
+
+/* helper: page-X  ➜  beat index ------------------------------------*/
+const xToBeat = x => {
+  const { left } = boardRef.current.getBoundingClientRect();
+  return Math.max(0, Math.floor((x - left) / bw));
+};
 
 /* 🔴 pill under the eraser cursor */
 const [deleteHoverId, setDeleteHoverId] = useState(null);
@@ -163,12 +172,21 @@ const startDrag = (id, offX, offY, startX, startY) => {
     <div
       ref={boardRef}
       className="sn-board"
-      style={{ width: W, height: rh * 6 }}
+    style={{ width: W, height: rh * 6, position:'relative' }}
+    
+  /* NEW — Ctrl-left-click empty space sets start-beat */
+  onClick={e => {
+    if (e.ctrlKey && !e.target.closest('.sn-note')) {        // empty grid cell
+      const { beat, row } = pointToGrid(e.clientX, e.clientY);
+      onBackgroundClick({ beat, row }, e.clientX, e.clientY, e);
+    }
+  }}
+
       onContextMenu={e => {
         if (e.target.closest('.sn-note')) return;
         e.preventDefault();
         const { beat, row } = pointToGrid(e.clientX, e.clientY);
-        onBackgroundClick({ beat, row }, e.clientX, e.clientY);
+        onBackgroundClick({ beat, row }, e.clientX, e.clientY, e);
       }}
     >
       {/* zebra rows */}
@@ -216,11 +234,72 @@ const startDrag = (id, offX, offY, startX, startY) => {
 })}
 
 
+{/* play-head ------------------------------------------------ */}
+{progress !== null && (
+  <div
+    className="sn-playhead"
+    style={{
+      /* left = (startBeat + progress·remaining) × bw */
+      left: (startBeat + progress * (beats - startBeat)) * bw,
+    }}
+  />
+  
+)}
 
-      {/* play-head */}
-      {progress!==null && (
-        <div className="sn-playhead" style={{ left:progress*W }} />
-      )}
+
+{/* ── START-BEAT MARKER & FLAG ───────────────────────── */}
+<>
+  {/* thin vertical guideline – only if marker isn’t at beat 0 */}
+  {startBeat !== 0 && (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: startBeat * bw,
+        width: 1,
+        background: '#14b8a650',
+        pointerEvents: 'none',
+        zIndex: 4,
+      }}
+    />
+  )}
+
+ {/* draggable arrow */}
+<div
+  onMouseDown={(e) => {
+    e.stopPropagation();
+    const move = (ev) => onSetStartBeat(xToBeat(ev.clientX));
+    const up   = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup',   up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup',   up);
+  }}
+  style={{
+    position: 'absolute',
+    top: -14,                       // a little higher so the bigger arrow clears the grid
+    left: startBeat * bw - 9,       // (½ of new base width)
+    width: 0,
+    height: 0,
+    /* ▼  bigger  & brighter */
+    borderLeft : '9px solid transparent',
+    borderRight: '9px solid transparent',
+    borderTop  : '12px solid #0fc4af',   // thicker triangle & slightly lighter teal
+    cursor: 'col-resize',
+    zIndex: 6,
+    opacity: startBeat === 0 ? 0.85 : 1, // less transparency when at beat 0
+    transition: 'left .15s, opacity .15s',
+  }}
+/>
+
+</>
+
+
+
+
+
 
       {/* drag ghost */}
       {ghost && (

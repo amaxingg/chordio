@@ -77,6 +77,19 @@ const handleUndo = () => {
 };
 
 
+// at the very top of App() – right after your other hooks
+useEffect(() => {
+  const handleContextMenu = e => {
+    // Skip <button> elements (or anything *inside* a button)
+    if (e.target.closest('button')) return;
+    e.preventDefault();          // block the browser menu
+  };
+
+  document.addEventListener('contextmenu', handleContextMenu);
+  return () => document.removeEventListener('contextmenu', handleContextMenu);
+}, []);
+
+
 
 /* 🔄  Always make the grid long enough for the right-most pill */
 useEffect(() => {
@@ -89,7 +102,10 @@ useEffect(() => {
 
   if (neededBeats !== beats) setBeats(neededBeats);
 }, [selectedNotes, beats]);
+
+
   const [currentBeat, setCurrentBeat]     = useState(0);
+  const [startBeat,  setStartBeat]  = useState(0);   // NEW ▸ where Play starts
 
   const [activeIds, setActiveIds]         = useState(new Set());
   const [playheadProgress, setPlayheadProgress] = useState(null);
@@ -462,8 +478,17 @@ const handleNoteClick = (note, x, y) => {
 };
 
 
-  const handleBgClick = ({ beat, row }, x, y) =>
-    setMenuInfo({ mode: 'empty', beat, row, x, y });
+const handleBgClick = ({ beat, row }, x, y, nativeEvt) => {
+  // Ctrl-left-click anywhere on the grid → set start beat
+  if (nativeEvt.ctrlKey && nativeEvt.button === 0) {
+    setStartBeat(beat);
+    return;                               // don’t open context-menu
+  }
+
+  /* regular empty-space click behaves as before                     */
+  setMenuInfo({ mode: 'empty', beat, row, x, y });
+};
+
 
   const deleteNote = (id) => {
     setSelectedNotes(prev => prev.filter(n => n.id !== id));
@@ -549,42 +574,57 @@ useEffect(() => {
 }, [beats, isPlaying]);                  // <── watches beat-count changes
 
 
-  /* ── play / pause with early-loop compensation ───────────────────── */
-/* ── play / pause with early-loop compensation ───────────────────── */
+/* ──────────────────────────────────────────────────────────
+   PLAY / PAUSE  — respects startBeat marker
+   ────────────────────────────────────────────────────────── */
 const playSelected = () => {
-  if (!selectedNotes.length || isPlaying) return;
+  if (isPlaying || !selectedNotes.length) return;
 
-  const baseBeatMs   = 600;                    // 100 BPM reference
-  const beatMs       =  baseBeatMs / playbackSpeed;
-  const visLag       = 100   / playbackSpeed;  // visual lag
+  /* ——— timing constants ——— */
+  const baseBeatMs   = 600;                      // 100 BPM reference
+  const beatMs       = baseBeatMs / playbackSpeed;
+  const visLag       = 100   / playbackSpeed;    // UI latency
+  const start        = startBeat;                // user marker (≥ 0)
   const loopEarlyMs  = loopOn ? LOOP_EARLY_MS / playbackSpeed : 0;
-  const totalMs      = beats * beatMs;
-  const activeMs     = totalMs - loopEarlyMs;  // red-bar run-time
 
-  clearAllTimeouts();                          // safety reset
+  /* ——— pick only notes that can still be heard ——— */
+  const playable = selectedNotes.filter(n =>
+    !n.silent && n.beat + (n.duration ?? 1) - 1 >= start
+  );
+  if (!playable.length) return;
+
+  const beatsRemaining = beats - start;
+  const totalMs  = beatsRemaining * beatMs;
+  const activeMs = totalMs - loopEarlyMs;
+
+  /* ——— reset any previous run ——— */
+  clearAllTimeouts();
   setActiveIds(new Set());
   cancelAnimationFrame(playTimer.current);
-  beatsAtPlayRef.current = beats;              // remember grid size
+  beatsAtPlayRef.current = beats;
   setIsPlaying(true);
 
-  /* ── schedule notes ─────────────────────────────────────────── */
+  /* ——— group notes by “local” beat (start ⇒ 0) ——— */
   const byBeat = {};
-selectedNotes
-  .filter(n => !n.silent)              // skip blanks
-  .forEach(n => { (byBeat[n.beat] ||= []).push(n); });
+  for (const n of playable) {
+    const local = n.beat - start;                // shift left
+    (byBeat[local] ||= []).push(n);
+  }
 
+  /* ——— schedule note-ons / note-offs ——— */
   Object.entries(byBeat).forEach(([bStr, grp]) => {
     const beat      = Number(bStr);
     const baseStart = beat * beatMs;
-    const ordered   = grp.sort((a, b) => b.string - a.string);
+
+    const ordered   = grp.sort((a, b) => b.string - a.string); // bass → treble
     const nStrings  = ordered.length;
 
     ordered.forEach((note, idx) => {
-      const leadIn  = (nStrings - 1 - idx) * strumDelay;
+      const leadIn  = (nStrings - 1 - idx) * strumDelay;       // human strum
       const startMs = Math.max(0, baseStart - leadIn);
       const lenMs   = note.duration * beatMs;
 
-      /* NOTE ON */
+      /* NOTE-ON */
       timeoutsRef.current.push(
         setTimeout(() => {
           setActiveIds(ids => new Set(ids).add(note.id));
@@ -592,7 +632,7 @@ selectedNotes
         }, startMs)
       );
 
-      /* NOTE OFF */
+      /* NOTE-OFF */
       timeoutsRef.current.push(
         setTimeout(() => {
           setActiveIds(ids => {
@@ -605,65 +645,57 @@ selectedNotes
     });
   });
 
-  /* ── play-head animator + auto-scroll ───────────────────────── */
+  /* ——— animate the red play-head & keep it in view ——— */
   const t0 = performance.now();
-
   const tick = () => {
     const elapsed = performance.now() - t0 - visLag;
-    const p = elapsed / activeMs;              // 0‥1
+    const p       = elapsed / activeMs;          // 0 … 1
+
     if (p >= 1) {
-      pausePlayback();                         // clean shutdown
-      if (loopOn) playSelected();              // optional restart
+      pausePlayback();
+      if (loopOn) playSelected();                // optional restart
       return;
     }
 
     setPlayheadProgress(p);
 
-    // ---------- keep play-head centered ----------
-// ---------- keep play-head centered ----------
-// ---------- keep play-head visible (scrolls by 4 measures) ----------
-const box = scrollRef.current;
-if (box) {
-  const contentW  = box.scrollWidth;
-  const viewW     = box.clientWidth;
-  const x         = p * contentW;                     // play-head px
-  const buffer    = 40;                               // px before edge
+    const box = scrollRef.current;
+    if (box) {
+      const contentW  = box.scrollWidth;
+      const viewW     = box.clientWidth;
+      const x         = p * contentW;
+      const buffer    = 40;
+      const measurePx = (contentW / beatsRemaining) * BEATS_PER_MEASURE;
 
-  // one measure in pixels (beats → px); 4 = BEATS_PER_MEASURE
-const measurePx = (contentW / beats) * BEATS_PER_MEASURE;
-
-  // scroll right
-  if (x > box.scrollLeft + viewW - buffer) {
-    box.scrollLeft = Math.min(
-      contentW - viewW,
-      box.scrollLeft + measurePx * 4                // 4 measures forward
-    );
-  }
-  // scroll left
-  if (x < box.scrollLeft + buffer) {
-    box.scrollLeft = Math.max(
-      0,
-      box.scrollLeft - measurePx * 4                // 4 measures back
-    );
-  }
-}
-
-
+      if (x > box.scrollLeft + viewW - buffer) {
+        box.scrollLeft = Math.min(contentW - viewW,
+                                  box.scrollLeft + measurePx * 4);
+      }
+      if (x < box.scrollLeft + buffer) {
+        box.scrollLeft = Math.max(0,
+                                  box.scrollLeft - measurePx * 4);
+      }
+    }
 
     playTimer.current = requestAnimationFrame(tick);
   };
 
-  /* kick things off */
+  /* kick everything off */
+  scrollRef.current?.scrollTo({ left: 0 });      // jump view to marker
   setPlayheadProgress(0);
   playTimer.current = requestAnimationFrame(tick);
 };
+
+
+
+
+
 
 /* toggle between play and pause */
 const handlePlayPause = () => {
   if (isPlaying) pausePlayback();
   else           playSelected();
 };
-
 
 /* sustain toggle */
 const cycleSustain = () => {
@@ -983,19 +1015,26 @@ return (
             marginBottom: 'var(--gap-bar-to-fret)',
           }}
         >
-          <div
-            ref={scrollRef}
-            className="note-scrollbox"
-            style={{
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              maxWidth: '100%',
-              paddingBottom: '8px',
-              boxSizing: 'content-box',
-            }}
-          >
+<div
+  ref={scrollRef}
+  className="note-scrollbox"
+  style={{
+    overflowX: 'auto',
+    overflowY: 'hidden',   //  ← this line is hiding the arrow
+      paddingTop: '12px',      // leaves space so nothing gets cut off
+
+    maxWidth: '100%',
+    paddingBottom: '8px',
+    boxSizing: 'content-box',
+  }}
+>
             <SelectedNotesBoard
               notes={selectedNotes}
+
+              /* NEW — start-beat flag */
+              startBeat={startBeat}
+              onSetStartBeat={setStartBeat}
+              
               ghostNotes={ghostNotes}
               beats={beats}
               progress={playheadProgress}

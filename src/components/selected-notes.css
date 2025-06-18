@@ -427,3 +427,24 @@ padding: 4px 12px 4px 36px;          /* match base → consistent gap */
 .sn-beat:nth-of-type(2n) {
   background: rgba(255,255,255,0.12);   /* was 0.02 → barely brighter */
 }
+/* ────────── Start-beat marker ────────── */
+.sn-start-marker{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:4px;                         /* thicker line */
+  background:#14b8a6;                /* teal-500 */
+  z-index:10;
+}
+
+/* little arrow-head */
+.sn-start-marker::after{
+  content:'';
+  position:absolute;
+  top:-6px;                          /* above the grid */
+  left:50%;
+  width:10px;
+  height:10px;
+  background:inherit;                /* same teal */
+  transform:translateX(-50%) rotate(45deg);
+}
