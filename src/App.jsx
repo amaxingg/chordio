@@ -32,7 +32,6 @@ export default function App() {
   const undoStack = useRef([]);   // ← NEW (start as [])
 
 const [exactPositionOnly, setExactPositionOnly] = useState(true);
-const [maxPlayScore,      setMaxPlayScore]      = useState(20);
 
 /* —— USER STATE —— */
 const [showOutside,       setShowOutside]       = useState(false);
@@ -58,16 +57,72 @@ const [beats, setBeats] = useState(BEATS_PER_MEASURE); // start with 1 measure
 const [selectedNotes, setSelectedNotes] = useState([]);
 const [ghostNotes,   setGhostNotes]   = useState([]);   // ← live preview
 
-// Keep at most 50 snapshots and never store two identical references in a row
+
+
+
+
+// ──────────────────────────────────────────────────────────
+// Undo-stack helper
+// ──────────────────────────────────────────────────────────
 const pushHistory = (snapshot) => {
   const stack = undoStack.current;
-
-  // only push when the reference is different from the current top-of-stack
-  if (!stack.length || stack[stack.length - 1] !== snapshot) {
+  if (!stack.length || stack.at(-1) !== snapshot) {
     stack.push(snapshot);
     if (stack.length > 50) stack.shift();   // cap size
   }
 };
+// ──────────────────────────────────────────────────────────
+// QUICK-INSERT a full chord at the next free beat
+// (called by ChordSidebar right-click OR drag-drop)
+// ──────────────────────────────────────────────────────────
+const quickInsertChord = (shape) => {
+  // 1) translate the chord shape into note objects
+  const chordNotes = shape.frets.flatMap((rel, dbIdx) => {
+    if (rel == null || rel < 0) return [];
+    const uiString = 6 - dbIdx;                   // DB → UI order
+    const absFret  = rel > 0 ? shape.baseFret + rel - 1 : 0;
+    return [{ string: uiString, fret: absFret }];
+  });
+  if (!chordNotes.length) return;
+
+  // 2) find first beat where none of the notes collide
+  let beat = 0;
+  const spanEnd  = (b) => b + noteLenBeats - 1;
+ const collides = (b) => {
+   const end = spanEnd(b);                 // last beat the chord will use
+   return selectedNotes.some(n => {
+     const nStart = n.beat;
+     const nEnd   = n.beat + (n.duration ?? 1) - 1;
+     // any overlap, regardless of string
+     return !(end < nStart || b > nEnd);
+   });
+ };
+  while (collides(beat)) beat += 1;
+
+  // 3) extend the grid if we would run off the end
+  const lastNeeded = beat + noteLenBeats - 1;
+  if (lastNeeded >= beats) {
+    const extra = Math.floor(lastNeeded / BEATS_PER_MEASURE) + 1;
+    setBeats(extra * BEATS_PER_MEASURE);
+  }
+
+  // 4) commit to state (+ undo snapshot)
+  pushHistory(selectedNotes);
+  setSelectedNotes(prev => [
+    ...prev,
+    ...chordNotes.map(c => ({
+      id      : crypto.randomUUID(),
+      string  : c.string,
+      fret    : c.fret,
+      beat,
+      duration: noteLenBeats,
+    })),
+  ]);
+};
+
+
+
+
 
 
 const handleUndo = () => {
@@ -717,80 +772,88 @@ const cycleStrum = () => {
   /* ──────────  CHORD-FILTER (unchanged)  ─────────────────── */
   const [grouped, setGrouped] = useState({ cats:{}, degreeInfo:[] });
 
-  useEffect(() => {
-    const sIdx = 6 - stringIdx;
-    const melodyPC = (tuningMidi[sIdx] + fret) % 12;
-    const scalePCs = buildScale(root, scaleType);
+useEffect(() => {
+  /* ----- helpers ----- */
+  const sIdx     = 6 - stringIdx;                     // 0 = low-E
+  const melodyPC = (tuningMidi[sIdx] + fret) % 12;
+  const scalePCs = buildScale(root, scaleType);
 
-    let shapes = loadAllShapes();
+  /* ========================================================
+     1)  LOAD  +  ORIGINAL FILTERS
+     ------------------------------------------------------ */
+  let shapes = loadAllShapes();
 
+  // keep shapes that contain the melody pitch-class
+  shapes = shapes.filter(p =>
+    computePositionMidi(p).filter(Boolean).map(m => m % 12).includes(melodyPC)
+  );
 
-/* always keep chords that contain the target note */
-shapes = shapes.filter(p =>
-  computePositionMidi(p).filter(Boolean).map(m=>m%12).includes(melodyPC)
-);
+  // optionally enforce exact fret on the melody string
+  if (exactPositionOnly) {
+    shapes = shapes.filter(p => {
+      const rel = p.frets[sIdx];
+      const abs = rel > 0 ? p.baseFret + rel - 1 : 0;
+      return abs === fret;
+    });
+  }
 
-    
-    if (exactPositionOnly) {
-      shapes = shapes.filter(p => {
-        const rel = p.frets[sIdx];
-        const abs = rel > 0 ? p.baseFret + rel - 1 : 0;
-        return abs === fret;
-      });
-    }
+  // in-/out-of-scale  +  playability limit
+ shapes = shapes.filter(p =>
+   (showOutside ? !fitsScale(p, scalePCs) : fitsScale(p, scalePCs))
+ );
+  /* ========================================================
+     2)  DEDUPE BEFORE MUTING
+     ------------------------------------------------------ */
+  {
+    const seen = new Set();
+    shapes = shapes.filter(p => {
+  // add the suffix so “A9” and “A11” aren’t considered duplicates
+  const key = p.frets.join(',') + '|' + (p.suffix ?? '');      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
 
-
-shapes = shapes.filter(p =>
-  (showOutside ? !fitsScale(p, scalePCs) : fitsScale(p, scalePCs)) &&
-  playabilityScore(p) <= maxPlayScore
-);
-
-/* ── NEW: optional truncation ─────────────────────────────── */
-if (truncateHigher) {
-  shapes = shapes
-    .map(p => {
-      const newFrets = p.frets.map((f, idx) =>
-        idx > sIdx ? -1 : f          // mute any string *higher* than melody
+  /* ========================================================
+     3)  OPTIONAL “TRUNCATE NOTES ABOVE MELODY” & 2nd DEDUPE
+     ------------------------------------------------------ */
+  if (truncateHigher) {
+    shapes = shapes
+      .map(p => ({
+        ...p,
+        frets: p.frets.map((f, idx) => (idx > sIdx ? -1 : f)), // mute ↑
+      }))
+      .filter(
+        p => p.frets.filter(f => f != null && f >= 0).length >= 3 // ≥3 notes
       );
-      return { ...p, frets: newFrets };
-    })
-    .filter(p =>
-      /* keep only chords with ≥ 3 audible notes */
-      p.frets.filter(f => f != null && f >= 0).length >= 3
-    );
-
-    
-  /* ---------- DEDUPLICATE identical shapes ---------- */
-  const seen = new Set();               // "3,2,0,0,-1,-1" etc.
-  shapes = shapes.filter(p => {
-    const key = p.frets.join(',');
-    if (seen.has(key)) return false;    // drop later duplicates
-    seen.add(key);                      // keep the *first* one
-    return true;
-  });
-}
 
 
+  }
 
-    const notes = TonalScale.get(`${root} ${scaleType}`).notes;
-    const degreeInfo = [
-      { label:'Tonic',        degree:notes[0] },
-      { label:'Supertonic',   degree:notes[1] },
-      { label:'Mediant',      degree:notes[2] },
-      { label:'Subdominant',  degree:notes[3] },
-      { label:'Dominant',     degree:notes[4] },
-      { label:'Submediant',   degree:notes[5] },
-      { label:'Subtonic',     degree:notes[6] },
-    ];
+  /* ========================================================
+     4)  GROUP BY KEY / DEGREE  →  state
+     ------------------------------------------------------ */
+  const notes       = TonalScale.get(`${root} ${scaleType}`).notes;
+  const romanMajor  = ['I','II','III','IV','V','VI','VII'];
+  const romanMinorN = ['I','II','III','IV','V','VI','VII'];
 
-    const cats = {}; degreeInfo.forEach(d => { cats[d.degree] = []; });
-    cats.Chromatic = [];
-    shapes.forEach(p => (cats[p.key] || cats.Chromatic).push(p));
-    setGrouped({ cats, degreeInfo });
-}, [root, scaleType, stringIdx, fret,
-    showOutside, exactPositionOnly,
-    truncateHigher]);               // NEW – forces recompute
+  const degreeInfo = notes.map((n, idx) => ({
+    label : scaleType === 'minor' ? romanMinorN[idx] : romanMajor[idx],
+    degree: n,
+  }));
 
+  const cats = {};
+  degreeInfo.forEach(d => (cats[d.degree] = []));
+  cats.Chromatic = [];
+
+  shapes.forEach(p => (cats[p.key] || cats.Chromatic).push(p));
+
+  setGrouped({ cats, degreeInfo });
+},
+// ───── dependencies ─────
+[root, scaleType, stringIdx, fret,
+ showOutside, exactPositionOnly, truncateHigher]
+);
 
 
 /* play all strings of a chord-shape */
@@ -1109,8 +1172,10 @@ return (
 
   <ChordSidebar
     grouped={grouped}
-    onStartDrag={startChordDrag}
-    root={root}
+   onStartDrag={startChordDrag}
+    onQuickInsert={quickInsertChord}   
+    root={root}                       //  ← restore
+
     scaleType={scaleType}
     setRoot={setRoot}
     setScaleType={setScaleType}

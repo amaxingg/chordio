@@ -1,6 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { playabilityScore } from '@logic/rank.js';
+import { tuningMidi } from '@logic/constants.js';   // already used elsewhere
 
+const melodyPc = (stringIdx, fret) =>
+  (tuningMidi[6 - stringIdx] + fret) % 12;          // 6-idx → tuning array
 
 /* ---------- helper functions & constants ------------------ */
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -49,8 +52,10 @@ export default function ChordSidebar({
   exactPositionOnly, setExactPositionOnly,
     truncateHigher,          // NEW
   setTruncateHigher,       // NEW
+  
   onPlayChord,
-  onStartDrag,
+  onQuickInsert,          // NEW  onStartDrag,
+  onStartDrag,            // ←  MISSING!  add this line
   sidebarOpen,
   toggleSidebar,
 }) {
@@ -60,19 +65,22 @@ export default function ChordSidebar({
 
 
 
-  /* order degree sections */
-  const hasBasic = (deg) =>
-    (grouped.cats[deg] || []).some((p) =>
-      ['', 'major', 'maj', 'm', 'min', 'minor'].includes(
-        p.suffix === 'major' ? '' : p.suffix ?? ''
-      )
-    );
-  const diatonic      = grouped.degreeInfo.map((d) => d.degree);
-  const orderedRoots  = [
-    ...diatonic.filter(hasBasic),
-    ...diatonic.filter((d) => !hasBasic(d)),
-    'Chromatic',
-  ];
+ /* NEW – degree order is simply I … VII (+ Chromatic) -------- */
+ // 0‥11 of the note the user just picked on the fretboard
+ const targetPc = melodyPc(stringIdx, fret);
+
+ // find the matching Roman-degree index inside degreeInfo (0 → I, 1 → ii …)
+ let startIdx = grouped.degreeInfo.findIndex(
+   d => NOTE_NAMES.indexOf(d.degree) === targetPc
+ );
+ if (startIdx === -1) startIdx = 0;          // safety fallback
+
+ // rotate I–VII so the chosen degree comes first
+ const orderedRoots = [
+   ...grouped.degreeInfo.slice(startIdx).map(d => d.degree),
+   ...grouped.degreeInfo.slice(0, startIdx).map(d => d.degree),
+   'Chromatic',
+ ];
   
 
 /* ---------- helper that returns “all-collapsed” map ---------- */
@@ -288,6 +296,13 @@ const toggleBlock = label =>
   onMouseDown={e => firstChord && handleMouseDown(firstChord, e)}       /* hold → drag */
   onMouseUp={cancelHold}
   onMouseLeave={cancelHold}
+onContextMenu={(e) => {
+  e.preventDefault();
+  if (!firstChord) return;
+  onPlayChord   && onPlayChord(firstChord);   // ▶︎  play
+  onQuickInsert && onQuickInsert(firstChord); // ➕ insert
+}}
+
 >
   {/* left side: play arrow + title */}
   <div className="header-left">
@@ -344,7 +359,13 @@ const toggleBlock = label =>
                       {list.map((p,i)=>{
                         const suf = p.suffix==='major'?'':p.suffix??'';
                         return (
-                          <li
+                           <li
+onContextMenu={(e) => {
+  e.preventDefault();
+  onPlayChord   && onPlayChord(p);   // ▶︎  play it immediately
+  onQuickInsert && onQuickInsert(p); // ➕ drop it into the grid
+}}
+
                             key={i}
                             onClick={()=>onPlayChord&&onPlayChord(p)}
                             onMouseDown={e=>handleMouseDown(p,e)}
