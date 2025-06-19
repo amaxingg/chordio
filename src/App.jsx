@@ -367,6 +367,11 @@ const noteLenBeats = noteLenOptions[noteLenIdx];     // ← RESTORED
   // top of App() with other refs
   const scrollRef = useRef(null);
 
+// ─── wheel-/pinch-zoom parameters ──────────────────────────
+const MIN_ZOOM   = 0.05;     // 20 %
+const MAX_ZOOM   = 1.5;       // 200 %
+const ZOOM_STEP  = 1.15;    // ≈15 % per wheel-notch
+
 /* ──────────  ADD & EDIT NOTES  ──────────────────────────── */
 const handleAddSelected = ({ string, fret }) => {
     pushHistory(selectedNotes);  /* overlap helper: does note `n` touch any beat in [start, end]? */
@@ -583,6 +588,51 @@ const handleBgClick = ({ beat, row }, x, y, nativeEvt) => {
 const handleEraseNote = (id) => {
   pushHistory(selectedNotes);    setSelectedNotes(prev => prev.filter(n => n.id !== id));
 }
+
+
+/* ── wheel / pinch → horizontal zoom at cursor ───────────── */
+useEffect(() => {
+  const box = scrollRef.current;
+  if (!box) return;
+
+ const handleWheel = (e) => {
+   /*  A.  ignore horizontal-only wheels / track-pad swipes  */
+   if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+
+   /*  B.  treat any *vertical* wheel / swipe as zoom        */
+   e.preventDefault();                       // block normal scroll / page zoom
+
+    /* current pointer context */
+    const { left }  = box.getBoundingClientRect();
+    const cursorX   = e.clientX - left;                 // px in viewport
+    const worldX    = (box.scrollLeft + cursorX) / zoom;// logical beat-px
+
+    /* new zoom */
+    const dir       = e.deltaY > 0 ? 1 : -1;            // wheel sign
+    const nextZoom  = Math.min(
+      MAX_ZOOM,
+      Math.max(MIN_ZOOM, zoom * (dir > 0 ? 1 / ZOOM_STEP : ZOOM_STEP))
+    );
+
+    /* keep beat under cursor fixed */
+    const nextScroll = worldX * nextZoom - cursorX;
+
+    /* commit */
+    setZoom(nextZoom);
+    requestAnimationFrame(() => {
+      // clamp inside scrollable range
+      box.scrollLeft = Math.max(
+        0,
+        Math.min(box.scrollWidth - box.clientWidth, nextScroll)
+      );
+    });
+  };
+
+  box.addEventListener('wheel', handleWheel, { passive: false });
+  return () => box.removeEventListener('wheel', handleWheel);
+}, [zoom]);   // rerun if zoom ref changes
+
+
 
   /* close menu on outside-click */
   useEffect(() => {
